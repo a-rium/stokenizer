@@ -14,6 +14,7 @@ class TokenKind(enum.Enum):
 	IDENTIFIER = enum.auto()
 	OPERATOR = enum.auto()
 	QUOTED = enum.auto()
+	WHITESPACE = enum.auto()
 
 
 @dataclasses.dataclass
@@ -22,7 +23,7 @@ class Token:
 	kind: str
 
 	def unquoted(self):
-		return self.text[1:len(self.text)]
+		return self.text[1:len(self.text)-1]
 
 
 def _is_identifier(c: str) -> bool:
@@ -34,15 +35,32 @@ def _is_start_of_identifier(c: str) -> bool:
 	
 
 def _is_operator(c: str) -> bool:
-	return c not in (QUOTES | {'_'}) and c in string.punctuation
+	return c not in (QUOTES | {'_'}) and (c in string.punctuation or c in {'<', '>', '/'})
+
+def _is_whitespace(c: str) -> bool:
+	return c in string.whitespace
 
 
-def tokenize(text: str, /, is_identifier=_is_identifier, is_operator=_is_operator, is_start_of_identifier=_is_start_of_identifier) -> List[Token]:
+def skip_whitespaces(tokens: List[Token], current: int) -> Tuple[Token, int]:
+	at = current
+	while tokens[at].kind == TokenKind.WHITESPACE:
+		at += 1
+	return tokens[at], at
+
+
+def advance(tokens: List[Token], current: int) -> Tuple[Token, int]:
+	return skip_whitespaces(tokens, current + 1)
+
+
+def tokenize(text: str, /, is_identifier=_is_identifier, is_operator=_is_operator, is_start_of_identifier=_is_start_of_identifier, is_whitespace=_is_whitespace) -> List[Token]:
 	tokens: List[Token] = []
 	at = 0
 	while at < len(text):
-		while at < len(text) and text[at] in string.whitespace:
+		start = at
+		while at < len(text) and is_whitespace(text[at]):
 			at += 1
+		if at > start:
+			tokens.append(Token(text[start:at], TokenKind.WHITESPACE))
 		if at >= len(text):
 			break
 		start = at
